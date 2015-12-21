@@ -47,7 +47,7 @@ def push_event_hook():
     for it in push_event['changesets']['values']:
         commit_map[it["id"]] = it
         
-    for commit in commit_map.keys()
+    for commit in commit_map.keys():
         commit = commit['toCommit']
         commit_url = "/".join([repo_homepage, "commits", commit['id']])
         app.logger.debug(

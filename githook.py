@@ -2,6 +2,7 @@
 # -*- coding: utf-8 -*=
 
 import re
+from collections import OrderedDict
 from datetime import datetime
 from flask import Flask, request, Response
 from youtrack.connection import Connection
@@ -38,11 +39,15 @@ def push_event_hook():
     repo_slug = push_event['repository']['slug']
     stash_host = app.config['STASH_HOST']
     repo_homepage = "/".join([stash_host, "projects", repo_project, "repos", repo_slug])
-    refspec = push_event['refChanges'][0]['refId'].replace("refs/heads/", "")
+    refspec = push_event['refChanges'][-1]['refId'].replace("refs/heads/", "")
 
     app.logger.debug(u'Received push event in branch %s on repository %s', refspec, repo_name)
-
-    for commit in reversed(push_event['changesets']['values']):
+    commit_ids = [it['id'] for it in reversed(push_event['changesets']['values'])]
+    commit_map = OrderedDict()
+    for it in push_event['changesets']['values']:
+        commit_map[it["id"]] = it
+        
+    for commit in commit_map.keys()
         commit = commit['toCommit']
         commit_url = "/".join([repo_homepage, "commits", commit['id']])
         app.logger.debug(
@@ -124,4 +129,4 @@ def get_user_login(yt, email):
 
 
 if __name__ == '__main__':
-    app.run()
+    app.run(threaded=True)

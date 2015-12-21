@@ -42,7 +42,7 @@ def push_event_hook():
 
     app.logger.debug(u'Received push event in branch %s on repository %s', refspec, repo_name)
 
-    for commit in push_event['changesets']['values']:
+    for commit in reversed(push_event['changesets']['values']):
         commit = commit['toCommit']
         commit_url = "/".join([repo_homepage, "commits", commit['id']])
         app.logger.debug(
@@ -79,6 +79,7 @@ def push_event_hook():
                         u'*author*: %(author)s\n'
                         u'*branch*: %(refspec)s\n'
                         u'*repository*: [%(repo_homepage)s %(repo_name)s]\n'
+                        u'*timestamp*: %(date)s UTC\n'
                         u'{monospace}\n\n'
                         u'====Message====\n\n'
                         u'{monospace}\n'

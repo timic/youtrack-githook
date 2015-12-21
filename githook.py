@@ -1,5 +1,6 @@
 import re
 import dateutil.parser
+from datetime import datetime
 from flask import Flask, request, Response
 from youtrack.connection import Connection
 from youtrack import YouTrackException
@@ -32,22 +33,23 @@ def push_event_hook():
     repo_name = push_event['repository']['name']
     repo_project = push_event['repository']['project']['key']
     repo_slug = push_event['repository']['slug']
-    repo_homepage = [STASH_HOST, "projects", repo_project, "repos", repo_slug].join("/")
+    stash_host = app.config['STASH_HOST']
+    repo_homepage = "/".join([stash_host, "projects", repo_project, "repos", repo_slug])
     refspec = push_event['refChanges'][0]['refId'].replace("refs/heads/", "")
-    
+
     app.logger.debug('Received push event in branch %s on repository %s', refspec, repo_name)
 
     for commit in push_event['changesets']['values']:
         commit = commit['toCommit']
-        commit_url = [repo_homepage, "commits", commit['id']].join("/") 
+        commit_url = "/".join([repo_homepage, "commits", commit['id']])
         app.logger.debug(
             'Processing commit %s by %s (%s) in %s',
             commit['id'],
             commit['author']['name'],
-            commit['author']['email'],
+            commit['author']['emailAddress'],
             commit_url,
         )
-        commit_time = dateutil.parser.parse(commit['authorTimestamp'])
+        commit_time = datetime.fromtimestamp(commit['authorTimestamp']/1000)
         issues = re.findall(app.config['REGEX'], commit['message'], re.MULTILINE)
         if not issues:
             app.logger.debug('''Didn't find any referenced issues in commit %s''', commit['id'])
@@ -66,9 +68,20 @@ def push_event_hook():
                 try:
                     yt.getIssue(issue_id)
                     comment_string = (
-                        'Commit [%(url)s %(id)s] on branch %(refspec)s in [%(repo_homepage)s %(repo_name)s] made by %(author)s on %(date)s\n{quote}%(message)s{quote}' %  {
+                        u'=Git commit=\n\n'
+                        u'{monospace}\n'
+                        u'*id*: [%(url)s %(id)s]\n'
+                        u'*author*: %(author)s\n'
+                        u'*branch*: %(refspec)s\n'
+                        u'*repository*: [%(repo_homepage)s %(repo_name)s]\n'
+                        u'{monospace}\n\n'
+                        u'====Message====\n'
+                        u'{monospace}\n'
+                        u'%(message)s\n'
+                        u'{monospace}'
+                        %  {
                             'url': commit_url,
-                            'id': commit['id'],
+                            'id': commit['displayId'],
                             'author': commit['author']['name'],
                             'date': str(commit_time),
                             'message': commit['message'],
@@ -102,7 +115,3 @@ def get_user_login(yt, email):
                 if full_user['email'] == email:
                     return full_user['login']
     return None
-
-
-if __name__ == '__main__':
-    app.run()

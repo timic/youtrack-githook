@@ -73,14 +73,14 @@ def push_event_hook():
                 try:
                     yt.getIssue(issue_id)
                     comment_string = (
-                        u'=Git commit=\n\n'
+                        u'=Git Commit=\n\n'
                         u'{monospace}\n'
                         u'*id*: [%(url)s %(id)s]\n'
                         u'*author*: %(author)s\n'
                         u'*branch*: %(refspec)s\n'
                         u'*repository*: [%(repo_homepage)s %(repo_name)s]\n'
                         u'{monospace}\n\n'
-                        u'====Message====\n'
+                        u'====Message====\n\n'
                         u'{monospace}\n'
                         u'%(message)s\n'
                         u'{monospace}'

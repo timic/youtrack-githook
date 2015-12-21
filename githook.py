@@ -42,13 +42,12 @@ def push_event_hook():
     refspec = push_event['refChanges'][-1]['refId'].replace("refs/heads/", "")
 
     app.logger.debug(u'Received push event in branch %s on repository %s', refspec, repo_name)
-    commit_ids = [it['id'] for it in reversed(push_event['changesets']['values'])]
+    commit_ids = [it['toCommit']['id'] for it in reversed(push_event['changesets']['values'])]
     commit_map = OrderedDict()
     for it in push_event['changesets']['values']:
-        commit_map[it["id"]] = it
+        commit_map[it['toCommit']["id"]] = it['toCommit']
         
     for commit in commit_map.keys():
-        commit = commit['toCommit']
         commit_url = "/".join([repo_homepage, "commits", commit['id']])
         app.logger.debug(
             u'Processing commit %s by %s (%s) in %s',

@@ -9,6 +9,7 @@ YOUTRACK_URL = ''
 YOUTRACK_USERNAME = ''
 YOUTRACK_PASSWORD = ''
 YOUTRACK_APIKEY = ''
+STASH_HOST= ''
 REGEX = '([A-Z]+-\d+)'
 DEFAULT_USER = ''
 
@@ -28,16 +29,25 @@ def ping():
 def push_event_hook():
     push_event = request.json
     app.logger.debug(push_event)
-    user_name = push_event['user_name']
     repo_name = push_event['repository']['name']
-    repo_url = push_event['repository']['url']
-    repo_homepage = push_event['repository']['homepage']
-    refspec = push_event['ref']
-    app.logger.debug('Received push event by %s in branch %s on repository %s', user_name, refspec, repo_url)
+    repo_project = push_event['repository']['project']['key']
+    repo_slug = push_event['repository']['slug']
+    repo_homepage = [STASH_HOST, "projects", repo_project, "repos", repo_slug].join("/")
+    refspec = push_event['refChanges'][0]['refId'].replace("refs/heads/", "")
+    
+    app.logger.debug('Received push event in branch %s on repository %s', refspec, repo_name)
 
-    for commit in push_event['commits']:
-        app.logger.debug('Processing commit %s by %s (%s) in %s', commit['id'], commit['author']['name'], commit['author']['email'], commit['url'])
-        commit_time = dateutil.parser.parse(commit['timestamp'])
+    for commit in push_event['changesets']['values']:
+        commit = commit['toCommit']
+        commit_url = [repo_homepage, "commits", commit['id']].join("/") 
+        app.logger.debug(
+            'Processing commit %s by %s (%s) in %s',
+            commit['id'],
+            commit['author']['name'],
+            commit['author']['email'],
+            commit_url,
+        )
+        commit_time = dateutil.parser.parse(commit['authorTimestamp'])
         issues = re.findall(app.config['REGEX'], commit['message'], re.MULTILINE)
         if not issues:
             app.logger.debug('''Didn't find any referenced issues in commit %s''', commit['id'])
@@ -45,9 +55,9 @@ def push_event_hook():
             app.logger.debug('Found %d referenced issues in commit %s', len(issues), commit['id'])
             yt = Connection(app.config['YOUTRACK_URL'], app.config['YOUTRACK_USERNAME'], app.config['YOUTRACK_PASSWORD'])
 
-            user_login = get_user_login(yt, commit['author']['email'])
+            user_login = get_user_login(yt, commit['author']['emailAddress'])
             if user_login is None:
-                app.logger.warn("Couldn't find user with email address %s. Using default user.", commit['author']['email'])
+                app.logger.warn("Couldn't find user with email address %s. Using default user.", commit['author']['emailAddress'])
                 default_user = yt.getUser(app.config['DEFAULT_USER'])
                 user_login = default_user['login']
 
@@ -55,7 +65,17 @@ def push_event_hook():
                 app.logger.debug('Processing reference to issue %s', issue_id)
                 try:
                     yt.getIssue(issue_id)
-                    comment_string = 'Commit [%(url)s %(id)s] on branch %(refspec)s in [%(repo_homepage)s %(repo_name)s] made by %(author)s on %(date)s\n{quote}%(message)s{quote}' % {'url': commit['url'], 'id': commit['id'], 'author': commit['author']['name'], 'date': str(commit_time), 'message': commit['message'], 'repo_homepage': repo_homepage, 'repo_name': repo_name, 'refspec': refspec}
+                    comment_string = (
+                        'Commit [%(url)s %(id)s] on branch %(refspec)s in [%(repo_homepage)s %(repo_name)s] made by %(author)s on %(date)s\n{quote}%(message)s{quote}' %  {
+                            'url': commit_url,
+                            'id': commit['id'],
+                            'author': commit['author']['name'],
+                            'date': str(commit_time),
+                            'message': commit['message'],
+                            'repo_homepage': repo_homepage,
+                            'repo_name': repo_name,
+                            'refspec': refspec
+                        })
                     app.logger.debug(comment_string)
                     yt.executeCommand(issueId=issue_id, command='comment', comment=comment_string.encode('utf-8'),
                                       run_as=user_login.encode('utf-8'))

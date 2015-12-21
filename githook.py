@@ -1,5 +1,7 @@
+#!/usr/bin/env python
+# -*- coding: utf-8 -*=
+
 import re
-import dateutil.parser
 from datetime import datetime
 from flask import Flask, request, Response
 from youtrack.connection import Connection
@@ -10,7 +12,7 @@ YOUTRACK_URL = ''
 YOUTRACK_USERNAME = ''
 YOUTRACK_PASSWORD = ''
 YOUTRACK_APIKEY = ''
-STASH_HOST= ''
+STASH_HOST = ''
 REGEX = '([A-Z]+-\d+)'
 DEFAULT_USER = ''
 
@@ -25,6 +27,7 @@ app.config.from_envvar('GITHOOK_SETTINGS', silent=True)
 def ping():
     return 'ping'
 
+
 @app.route('/hook', methods=['POST'])
 @app.route('/push_event', methods=['POST'])
 def push_event_hook():
@@ -37,13 +40,13 @@ def push_event_hook():
     repo_homepage = "/".join([stash_host, "projects", repo_project, "repos", repo_slug])
     refspec = push_event['refChanges'][0]['refId'].replace("refs/heads/", "")
 
-    app.logger.debug('Received push event in branch %s on repository %s', refspec, repo_name)
+    app.logger.debug(u'Received push event in branch %s on repository %s', refspec, repo_name)
 
     for commit in push_event['changesets']['values']:
         commit = commit['toCommit']
         commit_url = "/".join([repo_homepage, "commits", commit['id']])
         app.logger.debug(
-            'Processing commit %s by %s (%s) in %s',
+            u'Processing commit %s by %s (%s) in %s',
             commit['id'],
             commit['author']['name'],
             commit['author']['emailAddress'],
@@ -52,19 +55,21 @@ def push_event_hook():
         commit_time = datetime.fromtimestamp(commit['authorTimestamp']/1000)
         issues = re.findall(app.config['REGEX'], commit['message'], re.MULTILINE)
         if not issues:
-            app.logger.debug('''Didn't find any referenced issues in commit %s''', commit['id'])
+            app.logger.debug(u'''Didn't find any referenced issues in commit %s''', commit['id'])
         else:
-            app.logger.debug('Found %d referenced issues in commit %s', len(issues), commit['id'])
-            yt = Connection(app.config['YOUTRACK_URL'], app.config['YOUTRACK_USERNAME'], app.config['YOUTRACK_PASSWORD'])
+            app.logger.debug(u'Found %d referenced issues in commit %s', len(issues), commit['id'])
+            yt = Connection(
+                app.config['YOUTRACK_URL'], app.config['YOUTRACK_USERNAME'], app.config['YOUTRACK_PASSWORD'])
 
             user_login = get_user_login(yt, commit['author']['emailAddress'])
             if user_login is None:
-                app.logger.warn("Couldn't find user with email address %s. Using default user.", commit['author']['emailAddress'])
+                app.logger.warn(
+                    u"Couldn't find user with email address %s. Using default user.", commit['author']['emailAddress'])
                 default_user = yt.getUser(app.config['DEFAULT_USER'])
                 user_login = default_user['login']
 
             for issue_id in issues:
-                app.logger.debug('Processing reference to issue %s', issue_id)
+                app.logger.debug(u'Processing reference to issue %s', issue_id)
                 try:
                     yt.getIssue(issue_id)
                     comment_string = (
@@ -79,7 +84,7 @@ def push_event_hook():
                         u'{monospace}\n'
                         u'%(message)s\n'
                         u'{monospace}'
-                        %  {
+                        % {
                             'url': commit_url,
                             'id': commit['displayId'],
                             'author': commit['author']['name'],
@@ -115,3 +120,7 @@ def get_user_login(yt, email):
                 if full_user['email'] == email:
                     return full_user['login']
     return None
+
+
+if __name__ == '__main__':
+    app.run()

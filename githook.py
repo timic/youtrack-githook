@@ -47,7 +47,8 @@ def push_event_hook():
     for it in push_event['changesets']['values']:
         commit_map[it['toCommit']["id"]] = it['toCommit']
         
-    for commit in commit_map.keys():
+    for commit_id in commit_map.keys():
+        commit = commit_map[commit_id]
         commit_url = "/".join([repo_homepage, "commits", commit['id']])
         app.logger.debug(
             u'Processing commit %s by %s (%s) in %s',

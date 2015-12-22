@@ -58,8 +58,7 @@ def process_push_event(push_event):
     :return:
     """
     comments = collect_comments_for_issues(push_event)
-    for comment in comments:
-        publish_to_youtrack(comment['issue_id'], comment['comment_string'], comment['author_email'])
+    publish_to_youtrack(comments)
 
 
 def collect_comments_for_issues(push_event):
@@ -85,8 +84,9 @@ def collect_comments_for_issues(push_event):
 
     commit_map = dict(zip(map(lambda c: c['id'], commit_list), commit_list))
 
-    def ref_change_to_comment(ref_change):
-        commit_id = ref_change['toHash']
+    result = list()
+
+    for commit_id in commit_map.keys():
         commit = commit_map[commit_id]
         commit_url = '/'.join([repo_homepage, 'commits', commit['id']])
         author_email = commit['author']['emailAddress']
@@ -132,39 +132,42 @@ def collect_comments_for_issues(push_event):
                     })
                 app.logger.debug(comment_string)
 
-                return {
+                result.append({
                     'issue_id': issue_id,
                     'author_email': author_email,
                     'commit_time': commit_time,
                     'comment_string': comment_string
-                }
+                })
 
-    return sorted(map(ref_change_to_comment, push_event['refChanges']), key=lambda r: r['commit_time'])
+    return sorted(result, key=lambda r: r['commit_time'])
 
 
-def publish_to_youtrack(issue_id, author_email, comment_string):
+def publish_to_youtrack(comments):
     """
     Publishes the comment string to the issue identified on behalf of the author (if the email matches one)
     :rtype: NoneType
-    :param issue_id:
-    :param author_email:
-    :param comment_string:
+    :param comments:
     :return: Nothing
     """
     yt = Connection(app.config['YOUTRACK_URL'], app.config['YOUTRACK_USERNAME'], app.config['YOUTRACK_PASSWORD'])
 
-    user_login = get_user_login(yt, author_email)
-    if user_login is None:
-        app.logger.warn(u"Couldn't find user with email address %s. Using default user.", author_email)
-        default_user = yt.getUser(app.config['DEFAULT_USER'])
-        user_login = default_user['login']
+    for comment in comments:
+        issue_id = comment['issue_id']
+        comment_string = comment['comment_string']
+        author_email = comment['author_email']
 
-    try:
-        yt.getIssue(issue_id)
-        yt.executeCommand(issueId=issue_id, command='comment', comment=comment_string.encode('utf-8'),
-                          run_as=user_login.encode('utf-8'))
-    except YouTrackException:
-        app.logger.warn("Couldn't find issue %s", issue_id)
+        user_login = get_user_login(yt, author_email)
+        if user_login is None:
+            app.logger.warn(u"Couldn't find user with email address %s. Using default user.", author_email)
+            default_user = yt.getUser(app.config['DEFAULT_USER'])
+            user_login = default_user['login']
+
+        try:
+            yt.getIssue(issue_id)
+            yt.executeCommand(issueId=issue_id, command='comment', comment=comment_string.encode('utf-8'),
+                              run_as=user_login.encode('utf-8'))
+        except YouTrackException:
+            app.logger.warn("Couldn't find issue %s", issue_id)
 
 
 def get_user_login(yt, email):

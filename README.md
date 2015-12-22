@@ -1,17 +1,11 @@
-GitLab Hook for YouTrack
+Stash/Bitbucket Hook for YouTrack
 ========================
 
 This project provides a small HTTP endpoint to process the payload of a webhook
-sent by GitLab.
+sent by Bitbucket/Stash.
 
 It creates a comment in each referenced issue mentioning the author, the commit
 message, and a link to the commit page in GitLab.
-
-
-Documentation
--------------
-
-See the [project's wiki](https://github.com/gini/youtrack-githook/wiki).
 
 
 Development Environment

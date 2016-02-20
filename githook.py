@@ -164,8 +164,9 @@ def publish_to_youtrack(comments):
 
         try:
             yt.getIssue(issue_id)
-            yt.executeCommand(issueId=issue_id, command='comment', comment=comment_string.encode('utf-8'),
-                              run_as=user_login.encode('utf-8'))
+            yt.executeCommand(
+                issueId=issue_id, command='comment', comment=comment_string.encode('utf-8'),
+                run_as=user_login.encode('utf-8'), disable_notifications=True)
         except YouTrackException:
             app.logger.warn("Couldn't find issue %s", issue_id)
 
